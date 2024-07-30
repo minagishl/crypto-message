@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Encryption Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded shadow-md w-full max-w-lg">
+        <h1 class="text-2xl font-bold mb-4 text-center">Text Encryption Tool</h1>
+        <div class="mb-4">
+            <label for="plainText" class="block text-gray-700">Enter Text:</label>
+            <textarea id="plainText" rows="4" class="w-full p-2 border rounded"></textarea>
+        </div>
+        <div class="mb-4">
+            <label for="key" class="block text-gray-700">Enter Key (32 characters):</label>
+            <input type="text" id="key" maxlength="32" class="w-full p-2 border rounded">
+        </div>
+        <div class="flex justify-between mb-4">
+            <button onclick="generatePassword()" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Generate Key</button>
+            <button onclick="encryptText()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Encrypt Text</button>
+            <button onclick="decryptText()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Decrypt Text</button>
+        </div>
+        <div>
+            <label for="output" class="block text-gray-700">Output:</label>
+            <textarea id="output" rows="4" class="w-full p-2 border rounded" readonly></textarea>
+        </div>
+        <div class="mt-4">
+            <h2 class="text-xl font-bold mb-2">Stored Keys</h2>
+            <ul id="storedKeys" class="list-disc pl-5 text-gray-700"></ul>
+        </div>
+    </div>
+
+    <script>
+        function generatePassword() {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            let password = "";
+            for (let i = 0; i < 32; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('key').value = password;
+            saveKey(password);
+            displayStoredKeys();
+        }
+
+        function saveKey(key) {
+            let keys = JSON.parse(localStorage.getItem('keys')) || [];
+            keys.push(key);
+            localStorage.setItem('keys', JSON.stringify(keys));
+        }
+
+        function displayStoredKeys() {
+            const keys = JSON.parse(localStorage.getItem('keys')) || [];
+            const storedKeysList = document.getElementById('storedKeys');
+            storedKeysList.innerHTML = '';
+            keys.forEach((key, index) => {
+                const li = document.createElement('li');
+                li.classList.add('flex', 'items-center', 'mb-2');
+                li.innerHTML = `
+                    <span class="flex-grow">${key}</span>
+                    <button class="copy-btn text-blue-500 mx-2" onclick="copyKey('${key}', this)"><i class="far fa-copy"></i></button>
+                    <button class="delete-btn text-red-500" onclick="deleteKey(${index})"><i class="far fa-trash-alt"></i></button>
+                `;
+                storedKeysList.appendChild(li);
+            });
+        }
+
+        function copyKey(key, button) {
+            navigator.clipboard.writeText(key).then(() => {
+                button.innerHTML = '<i class="fas fa-check text-green-500"></i>';
+                setTimeout(() => {
+                    button.innerHTML = '<i class="far fa-copy"></i>';
+                }, 1000);
+            });
+        }
+
+        function deleteKey(index) {
+            let keys = JSON.parse(localStorage.getItem('keys')) || [];
+            keys.splice(index, 1);
+            localStorage.setItem('keys', JSON.stringify(keys));
+            displayStoredKeys();
+        }
+
+        function encryptText() {
+            const plainText = document.getElementById('plainText').value;
+            const key = document.getElementById('key').value;
+            if (plainText === '' || key.length !== 32) {
+                alert('Please enter text and a 32 character key');
+                return;
+            }
+            const iv = CryptoJS.lib.WordArray.random(16);
+            const encrypted = CryptoJS.AES.encrypt(plainText, CryptoJS.enc.Utf8.parse(key), {
+                iv: iv,
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7
+            }).toString();
+            const encryptedData = iv.toString() + ':' + encrypted;
+            document.getElementById('output').value = encryptedData;
+        }
+
+        function decryptText() {
+            const encryptedData = document.getElementById('output').value;
+            const key = document.getElementById('key').value;
+            if (encryptedData === '' || key.length !== 32) {
+                alert('Please enter encrypted text and a 32 character key');
+                return;
+            }
+            const encryptedArray = encryptedData.split(':');
+            const iv = CryptoJS.enc.Hex.parse(encryptedArray[0]);
+            const encryptedText = encryptedArray[1];
+            const decrypted = CryptoJS.AES.decrypt(encryptedText, CryptoJS.enc.Utf8.parse(key), {
+                iv: iv,
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7
+            });
+            const plainText = decrypted.toString(CryptoJS.enc.Utf8);
+            if (plainText === '') {
+                alert('Invalid key or encrypted text');
+                return;
+            }
+            document.getElementById('output').value = plainText;
+        }
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            displayStoredKeys();
+        });
+    </script>
+</body>
+</html>
